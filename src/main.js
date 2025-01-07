@@ -1,6 +1,7 @@
 import "./style.css";
 import * as LocAR from "locar";
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 // setup the scene
 const scene = new THREE.Scene();
@@ -20,13 +21,6 @@ window.addEventListener("resize", (e) => {
   camera.updateProjectionMatrix();
 });
 
-// setup the models to be shown in the scene
-const box = new THREE.BoxGeometry(20, 20, 20);
-const cube = new THREE.Mesh(
-  box,
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
-);
-
 //overall AR.js "manager" object
 const locar = new LocAR.LocationBased(scene, camera);
 //responsible for rendering the camera feed
@@ -36,53 +30,52 @@ let firstLocation = true;
 
 const deviceOrientationControls = new LocAR.DeviceOrientationControls(camera);
 
-locar.on("gpsupdate", (pos, distMoved) => {
+// Models
+const models = {
+  m1: {
+    uri: "arq.glb",
+    latitude: 41.4534311145121,
+    longitude: -8.288169382564208,
+    altitude: 278,
+    orientation: 0,
+    descritpion: "Testing description",
+  },
+};
+
+/**
+ * + lat = right
+ * - lat = left
+ * + long = back
+ * - long = front
+ */
+
+locar.on("gpsupdate", async (pos, distMoved) => {
   if (firstLocation) {
     alert(
-      `Got the initial location: longitude ${pos.coords.longitude}, latitude ${pos.coords.latitude}`
+      `Got the initial location: longitude ${pos.coords.longitude}, latitude ${pos.coords.latitude}, altitude ${pos.coords.altitude}`
     );
 
-    const boxProps = [
-      {
-        latDis: 0.001,
-        lonDis: 0,
-        colour: 0xff0000,
-      },
-      {
-        latDis: -0.001,
-        lonDis: 0,
-        colour: 0xffff00,
-      },
-      {
-        latDis: 0,
-        lonDis: -0.001,
-        colour: 0x00ffff,
-      },
-      {
-        latDis: 0,
-        lonDis: 0.001,
-        colour: 0x00ff00,
-      },
-    ];
+    // add all models
+    for (const key in models) {
+      // load the model
+      let model;
+      let modelLoader = await new GLTFLoader(model)
+        .loadAsync(models[key].uri)
+        .then(function (gltfModel) {
+          // get all children of current model
+          gltfModel.scene.scale.set(1000, 1000, 1000);
+          gltfModel.scene.updateWorldMatrix(true);
+          model = gltfModel.scene.children;
+          console.log(model);
+        });
 
-    const geom = new THREE.BoxGeometry(20, 20, 20);
-
-    for (const boxProp of boxProps) {
-      const mesh = new THREE.Mesh(
-        geom,
-        new THREE.MeshBasicMaterial({ color: boxProp.colour })
-      );
-
-      console.log(
-        `adding at ${pos.coords.longitude + boxProp.lonDis},${
-          pos.coords.latitude + boxProp.latDis
-        }`
-      );
-      locar.add(
-        mesh,
-        pos.coords.longitude + boxProp.lonDis,
-        pos.coords.latitude + boxProp.latDis
-      );
+      model.forEach((child) => {
+        // only add to the scene the child of type mesh
+        if (child.isMesh) {
+          child.scale;
+          locar.add(child, pos.coords.longitude - 0.001, pos.coords.latitude);
+        }
+      });
     }
 
     firstLocation = false;
